@@ -1,0 +1,135 @@
+unit Model.Conexao;
+
+interface
+
+ uses
+  System.SysUtils,
+  System.Classes,
+  Data.DB,
+  REST.Types,
+  Data.Bind.Components,
+  Data.Bind.ObjectScope,
+  REST.Client,
+  FireDAC.Stan.Intf,
+  FireDAC.Stan.Option,
+  FireDAC.Stan.Param,
+  FireDAC.Stan.Error,
+  FireDAC.DatS,
+  FireDAC.Phys.Intf,
+  FireDAC.DApt.Intf,
+  FireDAC.Comp.DataSet,
+  FireDAC.Comp.Client,
+  REST.Response.Adapter,
+  vcl.Dialogs,
+  Data.DBJson,
+  System.Net.HttpClient,
+  Interfaces.Conexao,
+  uFuncoes;
+
+  var
+   FMemTable : TFDMemTable;
+
+  type
+    TConexao = class(TInterfacedObject, iRequest)
+      private
+        FConexao: TRESTClient;
+        FRequest : TRESTRequest;
+        FResponse : TRESTResponse;
+        FResponseDataSetAdapter: TRESTResponseDataSetAdapter;
+      public
+        Constructor Create;
+        destructor destroy; override;
+        class function New : iRequest;
+        function RestRequest(aDataSet : TDataSource; aOrigem : Integer; aCep : String) : iRequest;
+    end;
+
+implementation
+
+{ TConexao }
+
+function TConexao.RestRequest(aDataSet : TDataSource; aOrigem : Integer; aCep : String) : iRequest;
+begin
+  try
+    if aOrigem = 1 then {ViaCep}
+      FConexao.BaseURL := 'http://viacep.com.br/ws/'+RemoverCaracteresEspeciais(aCep)+'/json';
+    if aOrigem = 2 then {apicep}
+      FConexao.BaseURL := 'https://cdn.apicep.com/file/apicep/'+MascaraCEP(aCep)+'.json';
+    if aOrigem = 3 then {awesomeapi}
+      FConexao.BaseURL := 'https://cep.awesomeapi.com.br/json/'+RemoverCaracteresEspeciais(aCep);
+
+    FRequest.Client := FConexao;
+    FRequest.ConnectTimeout := 3000;
+    FRequest.Method := rmGET;
+    FRequest.Response := FResponse;
+
+    FRequest.Execute;
+
+    if FResponse.StatusCode <> 200 then
+    begin
+      ShowMessage('Atenção... API Indisponível no momento, selecione outra opção e tente novamente');
+      exit
+    end
+     else
+    begin
+      if FResponseDataSetAdapter.Active = false then
+        FResponseDataSetAdapter.Active := true;
+      if FMemTable.Active = false then
+        FMemTable.Active := true;
+
+      aDataSet.DataSet := FMemTable;
+    end;
+     except On E: Exception do
+    begin
+      ShowMessage('Atenção... API Indisponível no momento, selecione outra opção e tente novamente');
+      abort
+    end;
+  end;
+end;
+
+constructor TConexao.Create;
+begin
+  FConexao := TRESTClient.Create(nil);
+  FRequest := TRESTRequest.Create(nil);
+  FResponse := TRESTResponse.Create(nil);
+  FResponse.ContentType := 'application/json';
+  FResponseDataSetAdapter := TRESTResponseDataSetAdapter.Create(nil);
+  FMemTable := TFDMemTable.Create(nil);
+
+  with FConexao do
+  begin
+    Accept := 'application/json, text/plain; q=0.9, text/html;q=0.8,';
+    AcceptCharset := 'utf-8, *;q=0.8';
+    ContentType := 'application/x-www-form-urlencoded';
+    SecureProtocols := [THttpSecureProtocol.SSL2,THttpSecureProtocol.SSL3,THttpSecureProtocol.TLS1,THttpSecureProtocol.TLS11,THttpSecureProtocol.TLS12,THttpSecureProtocol.TLS13];
+  end;
+   with FRequest do
+  begin
+    Accept := 'application/json, text/plain; q=0.9, text/html;q=0.8,';
+    AcceptCharset := 'utf-8, *;q=0.8';
+    AssignedValues := [TCustomRESTRequest.TAssignedValue.rvConnectTimeout,
+                               TCustomRESTRequest.TAssignedValue.rvReadTimeout];
+  end;
+   with FResponseDataSetAdapter do
+  begin
+    AutoUpdate := true;
+    Dataset := FMemTable;
+    Response := FResponse;
+    TypesMode := TJSONTypesMode.JSONOnly;
+  end;
+end;
+
+destructor TConexao.destroy;
+begin
+  FreeAndNil(FConexao);
+  FreeAndNil(FRequest);
+  FreeAndNil(FResponse);
+  FreeAndNil(FResponseDataSetAdapter);
+  inherited;
+end;
+
+class function TConexao.New: iRequest;
+begin
+  result := Self.Create;
+end;
+
+end.

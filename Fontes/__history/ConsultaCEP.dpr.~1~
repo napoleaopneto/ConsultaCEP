@@ -1,0 +1,14 @@
+program ConsultaCEP;
+
+uses
+  Vcl.Forms,
+  View.FormPrincipal in 'src\view\View.FormPrincipal.pas' {FormConsultaCep};
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.MainFormOnTaskbar := True;
+  Application.CreateForm(TFormConsultaCep, FormConsultaCep);
+  Application.Run;
+end.

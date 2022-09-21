@@ -1,0 +1,99 @@
+unit View.FormPrincipal;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Controller.Conexao, Vcl.StdCtrls,
+  Data.DB, Vcl.Grids, Vcl.DBGrids, Vcl.ExtCtrls, uFuncoes, FireDAC.Stan.Intf,
+  FireDAC.Stan.Option, FireDAC.Stan.Param, FireDAC.Stan.Error, FireDAC.DatS,
+  FireDAC.Phys.Intf, FireDAC.DApt.Intf, FireDAC.Comp.DataSet,
+  FireDAC.Comp.Client;
+
+type
+  TFormConsultaCep = class(TForm)
+    pCentral: TPanel;
+    lbFonteConsulta: TLabel;
+    lbCep: TLabel;
+    Grid: TDBGrid;
+    edtCep: TEdit;
+    cbFonteConsulta: TComboBox;
+    dsConsulta: TDataSource;
+    procedure edtCepKeyPress(Sender: TObject; var Key: Char);
+    procedure cbFonteConsultaChange(Sender: TObject);
+  private
+    { Private declarations }
+    procedure ConsultaCEP;
+  public
+    { Public declarations }
+  end;
+
+var
+  FormConsultaCep: TFormConsultaCep;
+
+implementation
+
+{$R *.dfm}
+
+procedure TFormConsultaCep.cbFonteConsultaChange(Sender: TObject);
+begin
+  if (edtCep.Text = '') and (cbFonteConsulta.ItemIndex <> 0) then
+  begin
+    ShowMessage('Atenção... Antes de consulta digite um cep válido !');
+    edtCep.SetFocus;
+    exit
+  end;
+   if Assigned(Grid.DataSource.DataSet) then
+  begin
+    Grid.DataSource.DataSet.Close;
+    ConsultaCEP;
+  end
+   else
+    ConsultaCEP;
+end;
+
+procedure TFormConsultaCep.ConsultaCEP;
+begin
+  try
+    if (edtCep.Text = '') then
+    begin
+      ShowMessage('Atenção... Digite um cep válido !');
+      edtCep.SetFocus;
+      exit
+    end
+     else
+    begin
+      if (cbFonteConsulta.ItemIndex = 0) then
+      begin
+       // edtCep.Text := MascaraCEP(edtCep.Text);
+        ShowMessage('Atenção... Selecione uma fonte de busca !');
+        cbFonteConsulta.SetFocus;
+        exit
+      end
+       else
+      begin
+        TControllerConexao
+        .New
+         .Conexao
+        .RestRequest
+         (
+           dsConsulta,
+           cbFonteConsulta.ItemIndex,
+           edtCep.Text
+         );
+      end;
+      edtCep.Text := MascaraCEP(edtCep.Text);
+    end;
+     Except On E: Exception do
+  end;
+end;
+
+procedure TFormConsultaCep.edtCepKeyPress(Sender: TObject; var Key: Char);
+begin
+  if key = #13 then
+  begin
+    ConsultaCEP;
+  end;
+end;
+end.
+
